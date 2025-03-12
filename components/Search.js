@@ -1,5 +1,5 @@
 import React from "react";
-import Loupe from "../images/Loupe.svg"
+import Loupe from "../public/images/Loupe.svg"
 import Image from "next/image";
 
 const Search = () => {

@@ -1,73 +1,80 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import Logo from "@/images/Logo.png";
+import { FiEdit } from "react-icons/fi";
+import Link from "next/link";
 
+const Section2 = ({ modifyImage, modifyText, cacheBuster, content: propContent }) => {
+  const [content, setContent] = useState(propContent);
+  const safeCacheBuster = cacheBuster || Date.now(); // ✅ Ajout d'une valeur par défaut
 
-const Section2 = () => {
+  // 🟢 Mise à jour du state lorsque `propContent` change (synchro avec l'admin)
+  useEffect(() => {
+    if (propContent) {
+      setContent(propContent);
+    } else {
+      fetch("/api/texts")
+        .then((res) => res.json())
+        .then((data) => setContent(data.section2))
+        .catch((err) => console.error("Erreur chargement des produits :", err));
+    }
+  }, [propContent]);
+
+  if (!content || !content.products) {
     return (
-        <div className="w-full flex flex-wrap items-center justify-center bg-[#fcd7eb] py-8 px-4">
-            <div className=" w-full md:w-1/4 p-2 flex flex-col items-center">
-                <div className="w-full relative">
-                    <Image 
-                        src={Logo} 
-                        alt="Produit 1"
-                        layout="responsive" 
-                        width={1} 
-                        height={1} 
-                        className="object-cover w-full"
-                    />
-                </div>
-                <h2 className="text-center mt-2 font-afacad text-[#333333] text-2xl font-bold">Foulard Etoile Hivernale</h2>
-                <p className="text-center font-afacad text-[#333333] text-xl font-semibold">45,00 €</p>
-            </div>
-
-            <div className="w-1/4 p-2 md:flex flex-col items-center hidden">
-                <div className="w-full relative">
-                    <Image 
-                        src={Logo} 
-                        alt="Produit 2"
-                        layout="responsive" 
-                        width={1} 
-                        height={1} 
-                        className="object-cover w-full"
-                    />
-                </div>
-                <h2 className="text-center mt-2 font-afacad text-[#333333] text-2xl font-bold">Foulard Étoile Printanière</h2>
-                <p className="text-center font-afacad text-[#333333] text-xl font-semibold">50,00 €</p>
-            </div>
-
-            <div className="w-1/4 p-2 md:flex flex-col items-center hidden">
-                <div className="w-full relative">
-                    <Image 
-                        src={Logo} 
-                        alt="Produit 3"
-                        layout="responsive" 
-                        width={1} 
-                        height={1} 
-                        className="object-cover w-full"
-                    />
-                </div>
-                <h2 className="text-center mt-2 font-afacad text-[#333333] text-2xl font-bold">Foulard Brise d'Été</h2>
-                <p className="text-center font-afacad text-[#333333] text-xl font-semibold">55,00 €</p>
-            </div>
-
-            <div className="w-1/4 p-2 md:flex flex-col items-center hidden">
-                <div className="w-full relative">
-                    <Image 
-                        src={Logo} 
-                        alt="Produit 4"
-                        layout="responsive" 
-                        width={1} 
-                        height={1} 
-                        className="object-cover w-full"
-                    />
-                </div>
-                <h2 className="text-center mt-2 font-afacad text-[#333333] text-2xl font-bold">Foulard Neige d’Hiver</h2>
-                <p className="text-center font-afacad text-[#333333] text-xl font-semibold">60,00 €</p>
-            </div>
-            <a href="/Produits" className="font-bold font-gluten text-[#666666] text-2xl mt-8">TOUT AFFICHER</a>
-        </div>
+      <div className="w-full flex justify-center py-10">
+        <p className="text-gray-500 text-lg">Chargement...</p>
+      </div>
     );
+  }
+
+  return (
+    <div className="w-full flex flex-col items-center bg-[#fcd7eb] py-8 px-4">
+      <div className="flex flex-wrap justify-center gap-6">
+        {content.products.map((product, index) => (
+          <div key={index} className="w-40 flex flex-col items-center">
+            <div className="w-40 h-40 relative flex justify-center items-center bg-white rounded-lg overflow-hidden shadow-md">
+              <Image 
+                src={`/images/Produit${index + 1}.png?t=${safeCacheBuster}`} 
+                alt={product.name}
+                width={160}
+                height={160} 
+                className="object-cover w-full h-full"
+                onError={(e) => e.target.src = "/images/default.png"} // ✅ Fallback en cas d'image manquante
+              />
+              {modifyImage && (
+                <button
+                  onClick={() => modifyImage(`Produit${index + 1}.png`)}
+                  className="absolute top-2 right-2 bg-white p-2 rounded-full shadow-md hover:bg-gray-200 transition"
+                >
+                  <FiEdit size={20} className="text-gray-700" />
+                </button>
+              )}
+            </div>
+            
+            {/* ✅ Modification du titre du produit */}
+            <h2 className="text-center mt-2 font-afacad text-[#333333] text-2xl font-bold flex items-center">
+              {product.name}
+              {modifyText && (
+                <button onClick={() => modifyText("section2", ["products", index, "name"])} className="ml-2">
+                  <FiEdit size={20} className="text-gray-600 hover:text-gray-900 transition" />
+                </button>
+              )}
+            </h2>
+
+            {/* ✅ Modification du prix */}
+            <p className="text-center font-afacad text-[#333333] text-xl font-semibold flex items-center">
+              {product.price}
+              {modifyText && (
+                <button onClick={() => modifyText("section2", ["products", index, "price"])} className="ml-2">
+                  <FiEdit size={20} className="text-gray-600 hover:text-gray-900 transition" />
+                </button>
+              )}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
 export default Section2;

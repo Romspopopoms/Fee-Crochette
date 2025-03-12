@@ -1,0 +1,52 @@
+{
+  "section1": {
+    "title": "Amour Gloire et bojours",
+    "description": "Plongez dans un Camps de bléé où la créativité et la passion du fait main prennent vie. Que vous soyez à la recherche d’accessoires uniques, de décorations pleines de charme, ou de cadeaux personnalisés, notre boutique est un véritable écrin de merveilles.z",
+    "subtitle": "SÉLECTION",
+    "subtitle_description": "Découvrez une collection unique, soigneusement choisie pour vous émerveiller. Entre accessoires délicatement confectionnés, décorations poétiques et pièces personnalisées, chaque création raconte une histoire..",
+    "NaN": "Amour Gloire et beauté"
+  },
+  "section2": {
+    "title": "NOS PRODUITS",
+    "products": [
+      {
+        "name": "Bonsoirz",
+        "price": "186 €"
+      },
+      {
+        "name": "Janinez",
+        "price": "392 €"
+      },
+      {
+        "name": "Brassard",
+        "price": "66 €"
+      },
+      {
+        "name": "Sauvage",
+        "price": "60,00 €"
+      }
+    ],
+    "see_more": "TOUT AFFICHER",
+    "products[0].name": "Salut jean jacque\n"
+  },
+  "section3": {
+    "description": "Chaque produist du capitaine Crochette est le fruit d’un savoir-faire artisanal unique. Du choix des matériaux à la dernière maille, tout est pensé avec soin et passion. Nous utilisons des fils de haute qualité, sélectionnés pour leur douceur, leur durabilité, et leur palette de couleurs inspirantes. Chaque pièce est réalisée à la main, garantissant des finitions soignées et une attention particulière aux détails. Notre méthode privilégie l'authenticité : pas de production en série, mais des créations qui portent l’empreinte de leur créatrice. Cela signifie que chaque article est une pièce unique, confectionnée avec amour pour vous apporter un produit aussi beau que durable."
+  },
+  "section4": {
+    "features": [
+      {
+        "icon": "FiShoppingCart",
+        "text": "CATALOGUE EN LIGNE"
+      },
+      {
+        "icon": "FiMessageSquare",
+        "text": "EQUIPE DISPONIBLE"
+      },
+      {
+        "icon": "FiCreditCard",
+        "text": "PAIEMENT SÉCURISÉ"
+      }
+    ],
+    "features[0].text": "Yo"
+  }
+}
