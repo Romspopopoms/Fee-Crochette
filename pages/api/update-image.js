@@ -53,7 +53,6 @@ export default async function handler(req, res) {
         Key: newS3Key,
         Body: fileContent,
         ContentType: newImage.mimetype,
-        ACL: 'public-read',
       }).promise();
 
       // ✅ Retourner l'URL de la nouvelle image
