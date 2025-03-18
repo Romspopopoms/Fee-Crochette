@@ -28,15 +28,13 @@ const TextEditModal = ({ isOpen, onClose, text, onSave }) => {
         />
         <div className="flex justify-end space-x-2">
           <button 
-            onClick={onClose} 
+            onClick={() => onClose(false)} 
             className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
           >
             Annuler
           </button>
           <button 
-            onClick={() => {
-              onClose(true);
-            }} 
+            onClick={() => onClose(true)} 
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Enregistrer
@@ -73,7 +71,7 @@ const ImageEditModal = ({ isOpen, onClose, previewImage, onImageChange, onSave }
         
         <div className="flex justify-end space-x-2">
           <button 
-            onClick={onClose} 
+            onClick={() => onClose(false)} 
             className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
           >
             Annuler
@@ -81,7 +79,7 @@ const ImageEditModal = ({ isOpen, onClose, previewImage, onImageChange, onSave }
           <button 
             onClick={() => {
               onSave();
-              onClose();
+              onClose(true);
             }} 
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
@@ -116,28 +114,39 @@ export default function AdminDashboard() {
     }
   }, []);
 
+  // Chargement des textes depuis S3
   useEffect(() => {
     if (view === "home") {
       fetch("/api/texts")
         .then((res) => res.json())
         .then((data) => setContent(data))
-        .catch((err) => console.error("Erreur chargement texte :", err));
+        .catch((err) => console.error("Erreur chargement texte depuis S3:", err));
     }
-  }, [view]);
+  }, [view, cacheBuster]);
 
+  // Chargement des articles depuis S3
   useEffect(() => {
     if (view === "articles") {
       fetch("/api/articles")
         .then((res) => res.json())
-        .then((data) => setArticles(data))
-        .catch((err) => console.error("Erreur chargement articles :", err));
+        .then((data) => {
+          // Formatage des prix pour l'affichage si nécessaire
+          const formattedData = data.map(article => ({
+            ...article,
+            price: article.price.includes("€") ? article.price : `${article.price} €`
+          }));
+          setArticles(formattedData);
+        })
+        .catch((err) => console.error("Erreur chargement articles depuis S3:", err));
     }
-  }, [view]);
+  }, [view, cacheBuster]);
 
   // ✅ Ajouter un article
   const handleAddArticle = (newArticle) => {
     setArticles((prev) => [...prev, newArticle]);
     setShowAddArticleModal(false);
+    // Refresh pour être sûr d'avoir les dernières données de S3
+    setCacheBuster(Date.now());
   };
 
   // ✅ Modifier un texte
@@ -164,7 +173,7 @@ export default function AdminDashboard() {
     setShowTextModal(true);  // Ouvrir la modal
   };
 
-  // ✅ Sauvegarde du texte modifié
+  // ✅ Sauvegarde du texte modifié sur S3
   const handleTextUpdate = async () => {
     if (!selectedText) return;
 
@@ -180,6 +189,7 @@ export default function AdminDashboard() {
       });
 
       if (res.ok) {
+        // Mise à jour de l'état local
         setContent((prev) => {
           let updatedContent = JSON.parse(JSON.stringify(prev));
           let target = updatedContent[selectedText.section];
@@ -193,23 +203,26 @@ export default function AdminDashboard() {
           return updatedContent;
         });
 
+        // Refresh pour être sûr d'avoir les dernières données de S3
+        setCacheBuster(Date.now());
         setSectionKey(Date.now());
       }
     } catch (error) {
-      console.error("❌ Erreur mise à jour texte :", error);
+      console.error("❌ Erreur mise à jour texte sur S3:", error);
+      alert("Erreur lors de la mise à jour du texte");
     }
 
     setSelectedText(null);
     setNewText("");
-    setShowTextModal(false);  // Fermer la modal
+    setShowTextModal(false);
   };
 
   // ✅ Modifier une image
-  const modifyImage = (imageName) => {
-    console.log("🟠 Modifier l'image :", imageName);
-    setSelectedImage(imageName);
+  const modifyImage = (imagePath) => {
+    console.log("🟠 Modifier l'image S3:", imagePath);
+    setSelectedImage(imagePath);
     setPreviewImage(null);
-    setShowImageModal(true);  // Ouvrir la modal
+    setShowImageModal(true);
   };
 
   // ✅ Prévisualisation de l'image
@@ -221,7 +234,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // ✅ Sauvegarde de l'image modifiée
+  // ✅ Sauvegarde de l'image modifiée sur S3
   const handleImageUpdate = async () => {
     if (!selectedImage || !newImage) return;
 
@@ -236,16 +249,53 @@ export default function AdminDashboard() {
       });
 
       if (res.ok) {
+        const data = await res.json();
+        
+        // Mise à jour de l'état local si nécessaire
+        // Pour l'instant, on force juste le rechargement avec cacheBuster
+        
+        // Refresh pour être sûr d'avoir les dernières données de S3
         setCacheBuster(Date.now());
+        alert("Image mise à jour avec succès");
+      } else {
+        alert("Erreur lors de la mise à jour de l'image");
       }
     } catch (error) {
-      console.error("Erreur mise à jour image :", error);
+      console.error("Erreur mise à jour image sur S3:", error);
+      alert("Erreur lors de la mise à jour de l'image");
     }
 
     setSelectedImage(null);
     setNewImage(null);
     setPreviewImage(null);
-    setShowImageModal(false);  // Fermer la modal
+    setShowImageModal(false);
+  };
+
+  // ✅ Supprimer un article
+  const handleDeleteArticle = async (articleId) => {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cet article ?")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/delete-article`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: articleId }),
+      });
+
+      if (res.ok) {
+        // Mise à jour de l'état local
+        setArticles((prev) => prev.filter(article => article.id !== articleId));
+        setCacheBuster(Date.now());
+        alert("Article supprimé avec succès");
+      } else {
+        alert("Erreur lors de la suppression de l'article");
+      }
+    } catch (error) {
+      console.error("Erreur suppression article sur S3:", error);
+      alert("Erreur lors de la suppression de l'article");
+    }
   };
 
   const renderHome = () => {
@@ -282,6 +332,25 @@ export default function AdminDashboard() {
         {showAddArticleModal && <ModalAjoutArticle onClose={() => setShowAddArticleModal(false)} onSave={handleAddArticle} />}
 
         <div className="border-4 border-dashed border-gray-500 p-4 rounded-lg w-full max-w-4xl relative">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold">Gestion des Articles</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              {articles.map(article => (
+                <div key={article.id} className="border rounded-lg p-4 relative">
+                  <img src={article.image} alt={article.name} className="w-full h-48 object-cover rounded-lg mb-2" />
+                  <h3 className="font-bold">{article.name}</h3>
+                  <p className="text-sm text-gray-600 mb-2">{article.description}</p>
+                  <p className="font-bold">{article.price}</p>
+                  <button 
+                    onClick={() => handleDeleteArticle(article.id)}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
           <Section1Articles products={articles} />
         </div>
       </>
@@ -318,7 +387,10 @@ export default function AdminDashboard() {
       {/* Modal pour l'édition d'image */}
       <ImageEditModal 
         isOpen={showImageModal}
-        onClose={() => setShowImageModal(false)}
+        onClose={(save) => {
+          if (save) handleImageUpdate();
+          else setShowImageModal(false);
+        }}
         previewImage={previewImage}
         onImageChange={handleImageChange}
         onSave={handleImageUpdate}

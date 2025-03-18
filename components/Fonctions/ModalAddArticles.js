@@ -28,7 +28,7 @@ export default function ModalAjoutArticle({ onClose, onSave }) {
     setUploading(true);
 
     try {
-      // 🔄 Upload de l’image sur S3
+      // 🔄 Upload de l'image sur AWS S3
       const formData = new FormData();
       formData.append("image", image);
 
@@ -41,16 +41,17 @@ export default function ModalAjoutArticle({ onClose, onSave }) {
 
       if (!uploadData.success) {
         alert("Erreur lors de l'upload de l'image.");
+        setUploading(false);
         return;
       }
 
-      // 🔄 Ajout de l’article dans articles.json (S3)
+      // 🔄 Ajout de l'article dans articles.json sur S3
       const newArticle = {
         id: Date.now().toString(),
         name,
-        price: `${price} €`,
+        price: parseFloat(price), // Stockons le prix comme nombre
         description,
-        image: uploadData.imageUrl, // ✅ Lien S3 récupéré
+        image: uploadData.imageUrl, // ✅ URL S3 récupérée
       };
 
       const saveRes = await fetch("/api/add-article", {
@@ -62,7 +63,12 @@ export default function ModalAjoutArticle({ onClose, onSave }) {
       const saveData = await saveRes.json();
 
       if (saveData.success) {
-        onSave(saveData.article);
+        // Format le prix pour l'affichage
+        const formattedArticle = {
+          ...saveData.article,
+          price: `${saveData.article.price} €`
+        };
+        onSave(formattedArticle);
         onClose();
       } else {
         alert("Erreur lors de l'ajout de l'article.");
@@ -121,7 +127,7 @@ export default function ModalAjoutArticle({ onClose, onSave }) {
             )}
             <h4 className="font-bold">{name}</h4>
             <p>{description}</p>
-            <p className="text-lg font-bold">{price} €</p>
+            <p className="text-lg font-bold">{price ? `${price} €` : ""}</p>
           </div>
         ) : null}
 
