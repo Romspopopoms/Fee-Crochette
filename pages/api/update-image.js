@@ -1,26 +1,26 @@
-import fs from "fs";
-import path from "path";
+import AWS from "aws-sdk";
 import { IncomingForm } from "formidable";
+import fs from "fs";
 
 export const config = {
   api: {
-    bodyParser: false, // Désactive le body parser de Next.js pour gérer les fichiers
+    bodyParser: false, // Nécessaire pour gérer les fichiers
   },
 };
+
+// ✅ Configure AWS
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: 'eu-west-3', // Adapte à ta région
+});
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Méthode non autorisée" });
   }
 
-  const imagesDir = path.join(process.cwd(), "public", "images"); // ✅ Stocke dans /public/images/
-
-  // ✅ Vérifier que le dossier public/images existe
-  if (!fs.existsSync(imagesDir)) {
-    fs.mkdirSync(imagesDir, { recursive: true });
-  }
-
-  const form = new IncomingForm({ keepExtensions: true, uploadDir: imagesDir });
+  const form = new IncomingForm({ keepExtensions: true });
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
@@ -28,29 +28,43 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Erreur lors de l'upload." });
     }
 
-    const oldImage = fields.oldImage?.[0]; // Nom de l'ancienne image
-    const newImage = files.image?.[0]; // Nouvelle image
+    const oldImageKey = fields.oldImage?.[0]; // Clé S3 de l'ancienne image
+    const newImage = files.image?.[0];
 
-    if (!oldImage || !newImage) {
+    if (!oldImageKey || !newImage) {
       return res.status(400).json({ error: "Image non spécifiée." });
     }
 
-    const oldImagePath = path.join(imagesDir, oldImage);
-    const newImagePath = path.join(imagesDir, oldImage); // ✅ Remplace l’ancien fichier avec le même nom
+    // ✅ Lecture de la nouvelle image
+    const fileContent = fs.readFileSync(newImage.filepath);
+    const newFileName = `${Date.now()}-${newImage.originalFilename}`;
+    const newS3Key = `images/${newFileName}`;
 
-    // ✅ Vérifier si l’ancienne image existe avant de la remplacer
-    if (fs.existsSync(oldImagePath)) {
-      fs.unlinkSync(oldImagePath); // Supprimer l'ancienne image
+    try {
+      // ✅ Supprimer l'ancienne image de S3
+      await s3.deleteObject({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: oldImageKey, // Ex: "images/nomAncienneImage.png"
+      }).promise();
+
+      // ✅ Uploader la nouvelle image
+      const uploadResult = await s3.upload({
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: newS3Key,
+        Body: fileContent,
+        ContentType: newImage.mimetype,
+        ACL: 'public-read',
+      }).promise();
+
+      // ✅ Retourner l'URL de la nouvelle image
+      return res.status(200).json({
+        message: "Image mise à jour avec succès.",
+        imageUrl: uploadResult.Location,
+        newS3Key, // Tu peux stocker cette clé en base pour les prochains remplacements
+      });
+    } catch (error) {
+      console.error("Erreur AWS S3 :", error);
+      return res.status(500).json({ error: "Erreur lors de la mise à jour sur S3." });
     }
-
-    // ✅ Déplacer la nouvelle image à la place de l'ancienne
-    fs.rename(newImage.filepath, newImagePath, (err) => {
-      if (err) {
-        console.error("Erreur lors du renommage :", err);
-        return res.status(500).json({ error: "Erreur lors de la mise à jour." });
-      }
-
-      res.status(200).json({ message: "Image mise à jour avec succès." });
-    });
   });
 }

@@ -11,7 +11,6 @@ export default function ModalAjoutArticle({ onClose, onSave }) {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setImage(file);
-    // Crée une URL temporaire pour l'image de prévisualisation
     if (file) {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
@@ -20,7 +19,7 @@ export default function ModalAjoutArticle({ onClose, onSave }) {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name || !price || !description || !image) {
       alert("Veuillez remplir tous les champs");
       return;
@@ -28,50 +27,57 @@ export default function ModalAjoutArticle({ onClose, onSave }) {
 
     setUploading(true);
 
-    const formData = new FormData();
-    formData.append("image", image);
+    try {
+      // 🔄 Upload de l’image sur S3
+      const formData = new FormData();
+      formData.append("image", image);
 
-    fetch("/api/upload-image", {
-      method: "POST",
-      body: formData,
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          const newArticle = {
-            id: Date.now().toString(),
-            name,
-            price: `${price} €`,
-            description,
-            image: data.imageUrl,
-          };
+      const uploadRes = await fetch("/api/upload-image", {
+        method: "POST",
+        body: formData,
+      });
 
-          return fetch("/api/add-article", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(newArticle),
-          })
-            .then((res) => res.json())
-            .then((response) => {
-              if (response.success) {
-                onSave(response.article);
-                onClose();
-              } else {
-                alert("Erreur lors de l'ajout de l'article.");
-              }
-            });
-        } else {
-          alert("Erreur lors de l'upload de l'image.");
-        }
-      })
-      .catch((err) => console.error("Erreur upload image:", err))
-      .finally(() => setUploading(false));
+      const uploadData = await uploadRes.json();
+
+      if (!uploadData.success) {
+        alert("Erreur lors de l'upload de l'image.");
+        return;
+      }
+
+      // 🔄 Ajout de l’article dans articles.json (S3)
+      const newArticle = {
+        id: Date.now().toString(),
+        name,
+        price: `${price} €`,
+        description,
+        image: uploadData.imageUrl, // ✅ Lien S3 récupéré
+      };
+
+      const saveRes = await fetch("/api/add-article", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newArticle),
+      });
+
+      const saveData = await saveRes.json();
+
+      if (saveData.success) {
+        onSave(saveData.article);
+        onClose();
+      } else {
+        alert("Erreur lors de l'ajout de l'article.");
+      }
+    } catch (err) {
+      console.error("Erreur :", err);
+      alert("Une erreur est survenue.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white p-6 rounded-lg shadow-lg w-[500px] relative">
-        {/* Bouton de fermeture (croix) */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-600 hover:text-black transition"
@@ -103,14 +109,13 @@ export default function ModalAjoutArticle({ onClose, onSave }) {
         />
         <input type="file" onChange={handleFileChange} className="mb-4" />
 
-        {/* Ajout de la section prévisualisation */}
         {name || price || description || previewUrl ? (
           <div className="border-t border-gray-300 mt-4 pt-4">
             <h3 className="text-lg font-semibold mb-2">Prévisualisation</h3>
             {previewUrl && (
               <img
                 src={previewUrl}
-                alt="Prévisualisation de l'image"
+                alt="Prévisualisation"
                 className="w-64 h-64 rounded-lg object-cover"
               />
             )}
