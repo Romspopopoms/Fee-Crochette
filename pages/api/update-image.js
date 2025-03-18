@@ -4,15 +4,14 @@ import fs from "fs";
 
 export const config = {
   api: {
-    bodyParser: false, // Nécessaire pour gérer les fichiers
+    bodyParser: false,
   },
 };
 
-// ✅ Configure AWS
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: 'eu-west-3', // Adapte à ta région
+  region: 'eu-west-3',
 });
 
 export default async function handler(req, res) {
@@ -28,26 +27,25 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Erreur lors de l'upload." });
     }
 
-    const oldImageKey = fields.oldImage?.[0]; // Clé S3 de l'ancienne image
+    const oldImageKey = fields.oldImage?.[0];
     const newImage = files.image?.[0];
 
     if (!oldImageKey || !newImage) {
       return res.status(400).json({ error: "Image non spécifiée." });
     }
 
-    // ✅ Lecture de la nouvelle image
     const fileContent = fs.readFileSync(newImage.filepath);
     const newFileName = `${Date.now()}-${newImage.originalFilename}`;
     const newS3Key = `images/${newFileName}`;
 
     try {
-      // ✅ Supprimer l'ancienne image de S3
+      // Supprimer l'ancienne image
       await s3.deleteObject({
         Bucket: process.env.AWS_BUCKET_NAME,
-        Key: oldImageKey, // Ex: "images/nomAncienneImage.png"
+        Key: oldImageKey,
       }).promise();
 
-      // ✅ Uploader la nouvelle image
+      // Uploader la nouvelle image SANS paramètre ACL
       const uploadResult = await s3.upload({
         Bucket: process.env.AWS_BUCKET_NAME,
         Key: newS3Key,
@@ -55,11 +53,10 @@ export default async function handler(req, res) {
         ContentType: newImage.mimetype,
       }).promise();
 
-      // ✅ Retourner l'URL de la nouvelle image
       return res.status(200).json({
         message: "Image mise à jour avec succès.",
         imageUrl: uploadResult.Location,
-        newS3Key, // Tu peux stocker cette clé en base pour les prochains remplacements
+        newS3Key,
       });
     } catch (error) {
       console.error("Erreur AWS S3 :", error);
